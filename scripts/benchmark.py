@@ -7,6 +7,10 @@
 import cv2  # type: ignore
 
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
+from segment_anything.utils.amg import (
+    batch_iterator,
+    generate_crop_boxes,
+)
 
 import argparse
 import json
@@ -16,6 +20,9 @@ from typing import Any, Dict, List
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+
+import torch
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser(
     description=(
@@ -282,52 +289,51 @@ def main(args: argparse.Namespace) -> None:
     amg_kwargs = get_amg_kwargs(args)
     generator = SamAutomaticMaskGenerator(sam, output_mode=output_mode, **amg_kwargs)
 
-    if not os.path.isdir(args.input):
-        targets = [args.input]
-    else:
-        targets = [
-            f for f in os.listdir(args.input) if not os.path.isdir(os.path.join(args.input, f))
-        ]
-        targets = [os.path.join(args.input, f) for f in targets]
-
-    os.makedirs(args.output, exist_ok=True)
-
-    plt.figure(figsize=(20,20))
-
     total_time = 0
-    warmup = 0
-    for i, t in enumerate(targets):
-        print(f"Processing '{t}'...")
-        image = cv2.imread(t)
-        if image is None:
-            print(f"Could not load '{t}' as an image, skipping...")
-            continue
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    warmup = 50
+    num_samples = 200
+    for i in tqdm(range(num_samples)):
+        image = np.random.randint(0, 255, size=(1024, 1024, 3), dtype=np.uint8)
 
         start = time.perf_counter()
-        masks = generator.generate(image)
+        # masks = generator.generate(image)
+        with torch.no_grad():
+            # mask_data = generator._generate_masks(image)
+            orig_size = image.shape[:2]
+            crop_boxes, layer_idxs = generate_crop_boxes(
+                orig_size, generator.crop_n_layers, generator.crop_overlap_ratio
+            )
+
+            # Iterate over image crops
+            for crop_box, crop_layer_idx in zip(crop_boxes, layer_idxs):
+                # crop_data = generator._process_crop(image, crop_box, layer_idx, orig_size)
+                x0, y0, x1, y1 = crop_box
+                cropped_im = image[y0:y1, x0:x1, :]
+                cropped_im_size = cropped_im.shape[:2]
+                generator.predictor.set_image(cropped_im)
+
+                points_scale = np.array(cropped_im_size)[None, ::-1]
+                points_for_image = generator.point_grids[crop_layer_idx] * points_scale
+
+                for (points,) in batch_iterator(generator.points_per_batch, points_for_image):
+                    # batch_data = generator._process_batch(points, cropped_im_size, crop_box, orig_size)
+                    transformed_points = generator.predictor.transform.apply_coords(points, cropped_im_size)
+                    in_points = torch.as_tensor(transformed_points, device=generator.predictor.device)
+                    in_labels = torch.ones(in_points.shape[0], dtype=torch.int, device=in_points.device)
+                    masks, iou_preds, _ = generator.predictor.predict_torch(
+                        in_points[:, None, :],
+                        in_labels[:, None],
+                        multimask_output=True,
+                        return_logits=True,
+                    )
+                    del masks
+                    del iou_preds
+
         eta = time.perf_counter() - start
-        if i > warmup:
+        if i >= warmup:
             total_time += eta
-
-        base = os.path.basename(t)
-        base = os.path.splitext(base)[0]
-        save_base = os.path.join(args.output, base)
-        if output_mode == "binary_mask":
-            os.makedirs(save_base, exist_ok=True)
-            write_masks_to_folder(masks, save_base)
-        else:
-            save_file = save_base + ".json"
-            with open(save_file, "w") as f:
-                json.dump(masks, f)
-
-        plt.clf()
-        plt.imshow(image)
-        show_anns(masks)
-        plt.axis('off')
-        plt.savefig(os.path.join(save_base, base + '.png'), bbox_inches='tight', pad_inches=0)
     print("Done!")
-    print(f"Average time per image: {total_time / (len(targets) - warmup)} seconds")
+    print(f"Average time per image: {total_time / (num_samples - warmup)} seconds")
 
 
 if __name__ == "__main__":

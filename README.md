@@ -1,6 +1,6 @@
-# Segment Anything
+# Expediting Large-Scale Vision Transformer for Dense Prediction without Fine-tuning
 
-**[Meta AI Research, FAIR](https://ai.facebook.com/research/)**
+<!-- **[Meta AI Research, FAIR](https://ai.facebook.com/research/)**
 
 [Alexander Kirillov](https://alexander-kirillov.github.io/), [Eric Mintun](https://ericmintun.github.io/), [Nikhila Ravi](https://nikhilaravi.com/), [Hanzi Mao](https://hanzimao.me/), Chloe Rolland, Laura Gustafson, [Tete Xiao](https://tetexiao.com), [Spencer Whitehead](https://www.spencerwhitehead.com/), Alex Berg, Wan-Yen Lo, [Piotr Dollar](https://pdollar.github.io/), [Ross Girshick](https://www.rossgirshick.info/)
 
@@ -13,23 +13,50 @@ The **Segment Anything Model (SAM)** produces high quality object masks from inp
 <p float="left">
   <img src="assets/masks1.png?raw=true" width="37.25%" />
   <img src="assets/masks2.jpg?raw=true" width="61.5%" /> 
-</p>
+</p> -->
+
+## Introduction
+
+This is the official implementation of the paper "[Expediting Large-Scale Vision Transformer for Dense Prediction without Fine-tuning](https://arxiv.org/abs/2210.01035)" on [Segment Anything Model (SAM)](https://segment-anything.com/).
+
+![framework](assets/Hourglass_transformer_framework.png)
+![framework](assets/TokenClusterReconstruct_Details.png)
+
+Our method can speed up SAM without any training. The bottleneck of SAM is image encoder. We implement our method on image encoder to signifficantly speed up the generation process. We test our method on different SAM models using a single 16G Tesla-V100. We set `--points-per-side=12` and `--points-per-batch=144` so that the generation process executes only one time.
+
+| Model            | clustering location | num of clusters | speed(image/s)     |
+| ---------------- | ------------------- | --------------- | ------------------ |
+| SAM-ViT-H        | -                   | -               | 1.27               |
+| SAM-ViT-H + ours | 18                   | 121             | 1.40(1.10x faster) |
+| SAM-ViT-H + ours | 14                   | 100             | 1.52(1.19x faster) |
+| SAM-ViT-H + ours | 8                   | 100             | 1.64(1.30x faster) |
+| SAM-ViT-H + ours | 8                   | 81              | 1.82(1.44x faster) |
+| SAM-ViT-H + ours | 6                   | 81              | 1.89(1.49x faster) |
+
+Here is the visualization of the setting above.
+
+![result of sam-vit-h + ours](assets/result_vit_h.png)
+
+We also try to implement our method on smaller model. Here are some examples generate by SAM w/ ViT-L + ours, with the setting of `--points-per-side=16` and `--points-per-batch=256`.  
+
+![result of sam-vit-l + ours](assets/result_vit_l.png)
 
 ## Installation
 
 The code requires `python>=3.8`, as well as `pytorch>=1.7` and `torchvision>=0.8`. Please follow the instructions [here](https://pytorch.org/get-started/locally/) to install both PyTorch and TorchVision dependencies. Installing both PyTorch and TorchVision with CUDA support is strongly recommended.
 
-Install Segment Anything:
+<!-- Install Segment Anything:
 
 ```
 pip install git+https://github.com/facebookresearch/segment-anything.git
 ```
 
-or clone the repository locally and install with
+or clone the repository locally and install with -->
+
+To use Segment Anything with our method, please clone this repository locally and install with
 
 ```
-git clone git@github.com:facebookresearch/segment-anything.git
-cd segment-anything; pip install -e .
+pip install -e .
 ```
 
 The following optional dependencies are necessary for mask post-processing, saving masks in COCO format, the example notebooks, and exporting the model in ONNX format. `jupyter` is also required to run the example notebooks.
@@ -40,11 +67,13 @@ pip install opencv-python pycocotools matplotlib onnxruntime onnx
 
 ## <a name="GettingStarted"></a>Getting Started
 
+You can run the code like using original Segment Anything Model. The only difference is that you need to add `use_hourglass=True` as parameter while calling `build_sam` function. Here is an example.
+
 First download a [model checkpoint](#model-checkpoints). Then the model can be used in just a few lines to get masks from a given prompt:
 
 ```
 from segment_anything import build_sam, SamPredictor 
-predictor = SamPredictor(build_sam(checkpoint="</path/to/model.pth>"))
+predictor = SamPredictor(build_sam(checkpoint="</path/to/model.pth>", use_hourglass=True))
 predictor.set_image(<your_image>)
 masks, _, _ = predictor.predict(<input_prompts>)
 ```
@@ -53,41 +82,29 @@ or generate masks for an entire image:
 
 ```
 from segment_anything import build_sam, SamAutomaticMaskGenerator
-mask_generator = SamAutomaticMaskGenerator(build_sam(checkpoint="</path/to/model.pth>"))
+mask_generator = SamAutomaticMaskGenerator(build_sam(checkpoint="</path/to/model.pth>", use_hourglass=True))
 masks = mask_generator.generate(<your_image>)
 ```
 
 Additionally, masks can be generated for images from the command line:
 
 ```
-python scripts/amg.py --checkpoint <path/to/sam/checkpoint> --input <image_or_folder> --output <output_directory>
+python scripts/amg.py --checkpoint <path/to/sam/checkpoint> --input <image_or_folder> --output <output_directory> --use_hourglass
 ```
 
-See the examples notebooks on [using SAM with prompts](/notebooks/predictor_example.ipynb) and [automatically generating masks](/notebooks/automatic_mask_generator_example.ipynb) for more details.
+You need to add `--use_hourglass` if you want to use our method to accelerate the process.
 
-<p float="left">
-  <img src="assets/notebook1.png?raw=true" width="49.1%" />
-  <img src="assets/notebook2.png?raw=true" width="48.9%" />
-</p>
-
-## ONNX Export
-
-SAM's lightweight mask decoder can be exported to ONNX format so that it can be run in any environment that supports ONNX runtime, such as in-browser as showcased in the [demo](https://segment-anything.com/demo). Export the model with
-
-```
-python scripts/export_onnx_model.py --checkpoint <path/to/checkpoint> --output <path/to/output>
-```
-
-See the [example notebook](https://github.com/facebookresearch/segment-anything/blob/main/notebooks/onnx_model_example.ipynb) for details on how to combine image preprocessing via SAM's backbone with mask prediction using the ONNX model. It is recommended to use the latest stable version of PyTorch for ONNX export.
 
 ## <a name="Models"></a>Model Checkpoints
 
-Three model versions of the model are available with different backbone sizes. These models can be instantiated by running 
+<!-- Three model versions of the model are available with different backbone sizes. These models can be instantiated by running 
 ```
 from segment_anything import sam_model_registry
 sam = sam_model_registry["<name>"](checkpoint="<path/to/checkpoint>")
 ```
-Click the links below to download the checkpoint for the corresponding model name. The default model in bold can also be instantiated with `build_sam`, as in the examples in [Getting Started](#getting-started).
+Click the links below to download the checkpoint for the corresponding model name. The default model in bold can also be instantiated with `build_sam`, as in the examples in [Getting Started](#getting-started). -->
+
+Here are the official weight of SAM model.
 
 * **`default` or `vit_h`: [ViT-H SAM model.](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth)**
 * `vit_l`: [ViT-L SAM model.](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth)
@@ -96,17 +113,18 @@ Click the links below to download the checkpoint for the corresponding model nam
 ## License
 The model is licensed under the [Apache 2.0 license](LICENSE).
 
-## Contributing
+## Citation
 
-See [contributing](CONTRIBUTING.md) and the [code of conduct](CODE_OF_CONDUCT.md).
+If you find this repo useful in your research, please consider citing:
 
-## Contributors
-
-The Segment Anything project was made possible with the help of many contributors (alphabetical):
-
-Aaron Adcock, Vaibhav Aggarwal, Morteza Behrooz, Cheng-Yang Fu, Ashley Gabriel, Ahuva Goldstand, Allen Goodman, Sumanth Gurram, Jiabo Hu, Somya Jain, Devansh Kukreja, Robert Kuo, Joshua Lane, Yanghao Li, Lilian Luong, Jitendra Malik, Mallika Malhotra, William Ngan, Omkar Parkhi, Nikhil Raina, Dirk Rowe, Neil Sejoor, Vanessa Stark, Bala Varadarajan, Bram Wasti, Zachary Winstrom
-
-## Citing Segment Anything
+```latex
+@article{liang2022expediting,
+	author    = {Liang, Weicong and Yuan, Yuhui and Ding, Henghui and Luo, Xiao and Lin, Weihong and Jia, Ding and Zhang, Zheng and Zhang, Chao and Hu, Han},
+	title     = {Expediting large-scale vision transformer for dense prediction without fine-tuning},
+	journal   = {arXiv preprint arXiv:2210.01035},
+	year      = {2022},
+}
+```
 
 If you use SAM or SA-1B in your research, please use the following BibTeX entry. 
 
