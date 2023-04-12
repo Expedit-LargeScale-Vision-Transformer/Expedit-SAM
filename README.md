@@ -1,4 +1,4 @@
-# Expediting Large-Scale Vision Transformer for Dense Prediction without Fine-tuning
+# Expediting SAM without Fine-tuning
 
 <!-- **[Meta AI Research, FAIR](https://ai.facebook.com/research/)**
 
