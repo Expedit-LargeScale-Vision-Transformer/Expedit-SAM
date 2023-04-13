@@ -203,7 +203,7 @@ class TokenReconstructionBlock(UnpoolingBase):
             mink = torch.min(topk, dim=-1).values
             mink = mink.unsqueeze(-1).repeat(1, 1, weight.shape[-1])
             mask = torch.ge(weight, mink)
-            zero = Variable(torch.zeros_like(weight)).cuda()
+            zero = Variable(torch.zeros_like(weight)).to(weight.device)
             attention = torch.where(mask, weight, zero)
         attention = F.normalize(attention, dim=2)
         ret = torch.einsum("bnm, bmc -> bnc", attention, x)

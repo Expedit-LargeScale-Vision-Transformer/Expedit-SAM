@@ -1,21 +1,9 @@
 # Expediting SAM without Fine-tuning
 
-<!-- **[Meta AI Research, FAIR](https://ai.facebook.com/research/)**
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2210.01035) 
+[![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/raw/main/open-in-hf-spaces-sm-dark.svg)](https://huggingface.co/spaces/kxqt/Expedit-SAM) 
 
-[Alexander Kirillov](https://alexander-kirillov.github.io/), [Eric Mintun](https://ericmintun.github.io/), [Nikhila Ravi](https://nikhilaravi.com/), [Hanzi Mao](https://hanzimao.me/), Chloe Rolland, Laura Gustafson, [Tete Xiao](https://tetexiao.com), [Spencer Whitehead](https://www.spencerwhitehead.com/), Alex Berg, Wan-Yen Lo, [Piotr Dollar](https://pdollar.github.io/), [Ross Girshick](https://www.rossgirshick.info/)
-
-[[`Paper`](https://ai.facebook.com/research/publications/segment-anything/)] [[`Project`](https://segment-anything.com/)] [[`Demo`](https://segment-anything.com/demo)] [[`Dataset`](https://segment-anything.com/dataset/index.html)] [[`Blog`](https://ai.facebook.com/blog/segment-anything-foundation-model-image-segmentation/)] [[`BibTeX`](#citing-segment-anything)]
-
-![SAM design](assets/model_diagram.png?raw=true)
-
-The **Segment Anything Model (SAM)** produces high quality object masks from input prompts such as points or boxes, and it can be used to generate masks for all objects in an image. It has been trained on a [dataset](https://segment-anything.com/dataset/index.html) of 11 million images and 1.1 billion masks, and has strong zero-shot performance on a variety of segmentation tasks.
-
-<p float="left">
-  <img src="assets/masks1.png?raw=true" width="37.25%" />
-  <img src="assets/masks2.jpg?raw=true" width="61.5%" /> 
-</p> -->
-
-## Introduction
+## <a name="Introduction"></a>Introduction
 
 This is the official implementation of the paper "[Expediting Large-Scale Vision Transformer for Dense Prediction without Fine-tuning](https://arxiv.org/abs/2210.01035)" on [Segment Anything Model (SAM)](https://segment-anything.com/).
 
@@ -41,17 +29,9 @@ We also try to implement our method on smaller model. Here are some examples gen
 
 ![result of sam-vit-l + ours](assets/result_vit_l.png)
 
-## Installation
+## <a name="Installation"></a>Installation
 
 The code requires `python>=3.8`, as well as `pytorch>=1.7` and `torchvision>=0.8`. Please follow the instructions [here](https://pytorch.org/get-started/locally/) to install both PyTorch and TorchVision dependencies. Installing both PyTorch and TorchVision with CUDA support is strongly recommended.
-
-<!-- Install Segment Anything:
-
-```
-pip install git+https://github.com/facebookresearch/segment-anything.git
-```
-
-or clone the repository locally and install with -->
 
 To use Segment Anything with our method, please clone this repository locally and install with
 
@@ -95,14 +75,17 @@ python scripts/amg.py --checkpoint <path/to/sam/checkpoint> --input <image_or_fo
 You need to add `--use_hourglass` if you want to use our method to accelerate the process.
 
 
-## <a name="Models"></a>Model Checkpoints
+## <a name="Gradio Demo"></a>Gradio Demo
 
-<!-- Three model versions of the model are available with different backbone sizes. These models can be instantiated by running 
+Web demo build with gradio is supported! You can run the following command to launch the demo:
+
 ```
-from segment_anything import sam_model_registry
-sam = sam_model_registry["<name>"](checkpoint="<path/to/checkpoint>")
+python app.py
 ```
-Click the links below to download the checkpoint for the corresponding model name. The default model in bold can also be instantiated with `build_sam`, as in the examples in [Getting Started](#getting-started). -->
+
+This demo is also hosted on HuggingFace [here](https://huggingface.co/spaces/kxqt/Expedit-SAM). Have fun!
+
+## <a name="Models"></a>Model Checkpoints
 
 Here are the official weight of SAM model.
 
