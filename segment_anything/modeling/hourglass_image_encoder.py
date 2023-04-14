@@ -25,7 +25,7 @@ from .image_encoder import (
 
 
 class TokenClusteringBlock(nn.Module):
-    def __init__(self, num_spixels=None, n_iters=5, temperture=0.05, window_size=7):
+    def __init__(self, num_spixels=None, n_iters=5, temperture=0.01, window_size=5):
         super().__init__()
         if isinstance(num_spixels, tuple):
             assert len(num_spixels) == 2
@@ -182,7 +182,7 @@ class NaiveUnpooling(UnpoolingBase):
 
 
 class TokenReconstructionBlock(UnpoolingBase):
-    def __init__(self, k=3, temperture=0.05):
+    def __init__(self, k=20, temperture=0.01):
         super().__init__()
 
         self.k = k
@@ -232,11 +232,11 @@ class HourglassImageEncoderViT(ImageEncoderViT):
         window_size: int = 0,
         global_attn_indexes: Tuple[int, ...] = (),
         hourglass_clustering_location: int = -1,
-        hourglass_num_cluster: int = None,
-        hourglass_cluster_iters: int = 3,
-        hourglass_temperture: float = 0.1,
-        hourglass_cluster_window_size: int = 12,
-        hourglass_reconstruction_k: int = 36,
+        hourglass_num_cluster: int = 100,
+        hourglass_cluster_iters: int = 5,
+        hourglass_temperture: float = 0.01,
+        hourglass_cluster_window_size: int = 5,
+        hourglass_reconstruction_k: int = 20,
     ) -> None:
         """
         Args:
@@ -274,6 +274,8 @@ class HourglassImageEncoderViT(ImageEncoderViT):
             window_size=window_size,
             global_attn_indexes=global_attn_indexes,
         )
+
+        hourglass_clustering_location = hourglass_clustering_location if hourglass_clustering_location >= 0 else depth + 1
 
         self.window_size = window_size
         self.ws_new = int(math.sqrt(hourglass_num_cluster))
@@ -356,11 +358,37 @@ class HourglassImageEncoderViT(ImageEncoderViT):
                 x, pad_hw = self.cluster(x, reconstructer)
             x = blk(x)
 
-        x = self.reconstruct(x, H, W, reconstructer, pad_hw)
+        if x.shape[1] != H or x.shape[2] != W:
+            x = self.reconstruct(x, H, W, reconstructer, pad_hw)
 
         x = self.neck(x.permute(0, 3, 1, 2))
 
         return x
+
+    def load_hourglass_args(self, **hourglass_args):
+        hourglass_clustering_location = hourglass_args.get('hourglass_clustering_location', self.clustering_location)
+        hourglass_num_cluster = hourglass_args.get('hourglass_num_cluster', self.token_clustering_block.num_spixels[0] * self.token_clustering_block.num_spixels[1])
+        hourglass_cluster_iters = hourglass_args.get('hourglass_cluster_iters', self.token_clustering_block.n_iters)
+        hourglass_temperture = hourglass_args.get('hourglass_temperture', self.token_clustering_block.temperture)
+        hourglass_cluster_window_size = hourglass_args.get('hourglass_cluster_window_size', self.token_clustering_block.r * 2 + 1)
+        hourglass_reconstruction_k = hourglass_args.get('hourglass_reconstruction_k', self.token_reconstruction_block.k)
+
+        self.clustering_location = hourglass_clustering_location if hourglass_clustering_location >= 0 else len(self.blocks) + 1
+
+        self.ws_new = int(math.sqrt(hourglass_num_cluster))
+        for i, blk in enumerate(self.blocks):
+            blk.window_size = (self.window_size if i < self.clustering_location else self.ws_new) if blk.window_size != 0 else 0
+        
+        self.token_clustering_block = TokenClusteringBlock(
+            num_spixels=hourglass_num_cluster, 
+            n_iters=hourglass_cluster_iters, 
+            temperture=hourglass_temperture, 
+            window_size=hourglass_cluster_window_size,
+        )
+        self.token_reconstruction_block = TokenReconstructionBlock(
+            k=hourglass_reconstruction_k,
+            temperture=hourglass_temperture,
+        )
 
 
 class HourglassBlock(Block):
