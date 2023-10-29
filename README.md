@@ -101,11 +101,20 @@ The model is licensed under the [Apache 2.0 license](LICENSE).
 If you find this repo useful in your research, please consider citing:
 
 ```latex
-@article{liang2022expediting,
-	author    = {Liang, Weicong and Yuan, Yuhui and Ding, Henghui and Luo, Xiao and Lin, Weihong and Jia, Ding and Zhang, Zheng and Zhang, Chao and Hu, Han},
+@article{yuan2023expediting,
+	author    = {Yuan, Yuhui and Liang, Weicong and Ding, Henghui and Liang, Zhanhao, and Zhang, Chao and Hu, Han},
 	title     = {Expediting large-scale vision transformer for dense prediction without fine-tuning},
-	journal   = {arXiv preprint arXiv:2210.01035},
-	year      = {2022},
+	journal   = {TPAMI},
+	year      = {2023},
+}
+
+@article{liang2022expediting,
+  title={Expediting large-scale vision transformer for dense prediction without fine-tuning},
+  author={Liang, Weicong and Yuan, Yuhui and Ding, Henghui and Luo, Xiao and Lin, Weihong and Jia, Ding and Zhang, Zheng and Zhang, Chao and Hu, Han},
+  journal={Advances in Neural Information Processing Systems},
+  volume={35},
+  pages={35462--35477},
+  year={2022}
 }
 ```
 
